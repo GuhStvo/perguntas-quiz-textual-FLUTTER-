@@ -1,28 +1,55 @@
 import 'package:flutter/material.dart';
 
 class InputForm extends StatefulWidget {
+  final String initialValue;
   final Function(String) onSubmit;
-  final VoidCallback? onPrevius;
-  final String? initialValue; // Para carregar a resposta anterior, se existir
+  final VoidCallback onPrevius;
+  final int currentIndex;
 
   const InputForm({
-    super.key, 
-    required this.onSubmit, 
-    this.initialValue,
-    this.onPrevius});
+    super.key,
+    required this.initialValue,
+    required this.onSubmit,
+    required this.onPrevius,
+    required this.currentIndex,
+  });
 
   @override
   State<InputForm> createState() => _InputFormState();
 }
 
 class _InputFormState extends State<InputForm> {
-  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   late TextEditingController _controller;
+  bool _isButtonEnabled = false;
 
   @override
   void initState() {
     super.initState();
-    _controller = TextEditingController(text: widget.initialValue); // Carrega o valor inicial, se houver
+    _controller = TextEditingController(text: widget.initialValue);
+    _isButtonEnabled = widget.initialValue.trim().isNotEmpty;
+
+    _controller.addListener(_validateInput);
+  }
+
+  void _validateInput() {
+    final isFilled = _controller.text.trim().isNotEmpty;
+    if (_isButtonEnabled != isFilled) {
+      setState(() {
+        _isButtonEnabled = isFilled;
+      });
+    }
+  }
+
+  @override
+  void didUpdateWidget(InputForm oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.currentIndex != widget.currentIndex) {
+      _controller.removeListener(_validateInput);
+      _controller.text = widget.initialValue;
+      _isButtonEnabled = widget.initialValue.trim().isNotEmpty;
+      _controller.addListener(_validateInput);
+      setState(() {}); // Força rebuild com novo estado do botão
+    }
   }
 
   @override
@@ -31,49 +58,34 @@ class _InputFormState extends State<InputForm> {
     super.dispose();
   }
 
-  void _validateForm() {
-    if (_formKey.currentState!.validate()) {
-      widget.onSubmit(_controller.text);
-      _controller.clear();
-    }
-  }
-
-
   @override
   Widget build(BuildContext context) {
-    return Form(
-      key: _formKey,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          TextFormField(
-            controller: _controller,
-            decoration: const InputDecoration(hintText: 'Sua resposta'),
-            validator: (String? value) {
-              if (value == null || value.isEmpty) {
-                return 'Por favor, digite sua resposta';
-              }
-              return null;
-            },
+    return Column(
+      children: [
+        TextFormField(
+          controller: _controller,
+          decoration: const InputDecoration(
+            labelText: 'Digite sua resposta',
+            border: OutlineInputBorder(),
           ),
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween, // Espaça os botões
-              children: [
-                ElevatedButton(
-                  onPressed: (widget.onPrevius),
-                  child: const Text('Voltar'),
-                ),
-                ElevatedButton(
-                  onPressed: _validateForm,
-                  child: const Text('Enviar'),
-                ),
-              ],
+        ),
+        const SizedBox(height: 20),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            ElevatedButton(
+              onPressed: widget.currentIndex == 0 ? null : widget.onPrevius,
+              child: const Text('Anterior'),
             ),
-          ),
-        ],
-      ),
+            ElevatedButton(
+              onPressed: _isButtonEnabled
+                  ? () => widget.onSubmit(_controller.text)
+                  : null,
+              child: const Text('Próxima'),
+            ),
+          ],
+        ),
+      ],
     );
   }
 }
